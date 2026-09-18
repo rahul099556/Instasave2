@@ -1,0 +1,6 @@
+{
+  "name": "InstaSave",
+  "description": "An Instagram Reels and Stories downloader tool.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
