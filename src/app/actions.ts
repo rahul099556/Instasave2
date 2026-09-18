@@ -1,47 +1,55 @@
 'use server'
 
+import { headers } from 'next/headers'
+
 export async function fetchInstagramMedia(url: string) {
-  if (!url) {
-    return { error: "Please enter a valid Instagram link." };
+  if (!url?.trim()) {
+    return { error: 'Please enter a valid Instagram URL.' }
   }
-  
+
   try {
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-      },
-      next: { revalidate: 0 }
-    });
-    
+    const headerList = await headers()
+
+    const protocol =
+      headerList.get('x-forwarded-proto') || 'https'
+
+    const host = headerList.get('host')
+
+    if (!host) {
+      return { error: 'Could not determine server address.' }
+    }
+
+    const response = await fetch(
+      `${protocol}://${host}/api/resolve`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: url.trim(),
+        }),
+        cache: 'no-store',
+      }
+    )
+
+    const data = await response.json()
+
     if (!response.ok) {
-      return { error: "Could not fetch the URL. Instagram may have blocked the request." };
-    }
-    
-    const html = await response.text();
-    
-    const videoPattern = /<meta property="og:video" content="(.*?)"/;
-    const imagePattern = /<meta property="og:image" content="(.*?)"/;
-    
-    const videoMatch = html.match(videoPattern);
-    const imageMatch = html.match(imagePattern);
-    
-    const videoUrl = videoMatch ? videoMatch[1].replace(/&amp;/g, '&') : null;
-    const imageUrl = imageMatch ? imageMatch[1].replace(/&amp;/g, '&') : null;
-    
-    if (videoUrl || imageUrl) {
       return {
-        success: true,
-        data: {
-          url,
-          imageUrl,
-          videoUrl,
-          isVideo: !!videoUrl
-        }
-      };
-    } else {
-      return { error: "Could not extract media. Instagram may have blocked the request or the profile is private." };
+        error:
+          data?.error ||
+          'Could not extract media from this Instagram URL.',
+      }
     }
-  } catch (err: any) {
-    return { error: `Error: ${err.message}` };
+
+    return data
+  } catch (error) {
+    console.error('Instagram media error:', error)
+
+    return {
+      error:
+        'Something went wrong while processing the Instagram URL.',
+    }
   }
 }
